@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { FormEvent, Fragment, useId, useMemo, useRef, useState } from "react";
 import {
   startOfWeek,
   startOfMonth,
@@ -11,10 +11,11 @@ import {
   isToday,
   subMonths,
   addMonths,
+  isSameDay,
 } from "date-fns";
 import { formatDate } from "../utils/formatDate";
 import { cc } from "../utils/cc";
-import { useEvents } from "../context/useEvent";
+import { EVENT_COLORS, useEvents } from "../context/useEvent";
 import { Modal, ModalProps } from "./Modal";
 import { UnionOmit } from "../utils/types";
 import { Event } from "../context/Events";
@@ -30,6 +31,8 @@ export function Calendar() {
       end: lastWeekEnd,
     });
   }, [selectedMonth]);
+
+  const { events } = useEvents();
 
   return (
     <div className="calendar">
@@ -60,6 +63,7 @@ export function Calendar() {
           <CalendarDay
             key={day.getTime()}
             day={day}
+            events={events.filter((event) => isSameDay(day, event.date))}
             showWeekName={index < 7}
             selectedMonth={selectedMonth}
           />
@@ -73,11 +77,32 @@ type CalendarDayProps = {
   day: Date;
   showWeekName: boolean;
   selectedMonth: Date;
+  events: Event[];
 };
 
-function CalendarDay({ day, showWeekName, selectedMonth }: CalendarDayProps) {
+function CalendarDay({
+  day,
+  showWeekName,
+  selectedMonth,
+  events,
+}: CalendarDayProps) {
   const [isNewEventModalOpen, setIsNewEventModalOpen] = useState(false);
   const { addEvent } = useEvents();
+
+  const sortedEvents = useMemo(() => {
+    const timeToNumber = (time: string) => parseFloat(time.replace(":", "."));
+    return [...events].sort((a, b) => {
+      if (a.allDay && b.allDay) {
+        return 0;
+      } else if (a.allDay) {
+        return -1;
+      } else if (b.allDay) {
+        return 1;
+      } else {
+        return timeToNumber(a.startTime) - timeToNumber(b.startTime);
+      }
+    });
+  }, [events]);
 
   return (
     <div
@@ -103,21 +128,24 @@ function CalendarDay({ day, showWeekName, selectedMonth }: CalendarDayProps) {
           +
         </button>
       </div>
-      {/*       <div className="events">
-        <button className="all-day-event blue event">
-          <div className="event-name">Short</div>
-        </button>
-        <button className="all-day-event green event">
-          <div className="event-name">
-            Long Event Name That Just Keeps Going
-          </div>
-        </button>
-        <button className="event">
-          <div className="color-dot blue"></div>
-          <div className="event-time">7am</div>
-          <div className="event-name">Event Name</div>
-        </button>
-      </div> */}
+      {sortedEvents.length > 0 && (
+        <div className="events">
+          <button className="all-day-event blue event">
+            <div className="event-name">Short</div>
+          </button>
+          <button className="all-day-event green event">
+            <div className="event-name">
+              Long Event Name That Just Keeps Going
+            </div>
+          </button>
+          <button className="event">
+            <div className="color-dot blue"></div>
+            <div className="event-time">7am</div>
+            <div className="event-name">Event Name</div>
+          </button>
+        </div>
+      )}
+
       <EventFormModal
         date={day}
         isOpen={isNewEventModalOpen}
@@ -128,6 +156,10 @@ function CalendarDay({ day, showWeekName, selectedMonth }: CalendarDayProps) {
   );
 }
 
+function CalendarEvent({ event }: { event: Event }) {
+  return;
+}
+
 type EventFromModalProps = {
   onSubmit: (event: UnionOmit<Event, "id">) => void;
 } & (
@@ -135,6 +167,8 @@ type EventFromModalProps = {
   | { onDelete?: never; event?: never; date: Date }
 ) &
   Omit<ModalProps, "children">;
+
+/* !!! input="type" ARE NOT SUPPORTED BY MOZILLA FIREFOX v125.0.2 2024 !!! */
 
 function EventFormModal({
   onSubmit,
@@ -145,6 +179,57 @@ function EventFormModal({
 }: EventFromModalProps) {
   const isNew = event == null;
   const formId = useId();
+  const [selectedColor, setSelectedColor] = useState(
+    event?.color || EVENT_COLORS[0]
+  );
+  const [isAllDayChecked, setIsAllDayChecked] = useState(
+    event?.allDay || false
+  );
+  const [startTime, setStartTime] = useState(event?.startTime || "");
+  const endTimeRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+
+    const name = nameRef.current?.value;
+    const endTime = endTimeRef.current?.value;
+
+    if (name == null || name === "") {
+      return;
+    }
+
+    const commonProps = {
+      name,
+      date: date || event?.date,
+      color: selectedColor,
+    };
+    let newEvent: UnionOmit<Event, "id">;
+    if (isAllDayChecked) {
+      newEvent = {
+        ...commonProps,
+        allDay: true,
+      };
+    } else {
+      if (
+        startTime == null ||
+        startTime === "" ||
+        endTime == null ||
+        endTime === ""
+      )
+        return;
+      newEvent = {
+        ...commonProps,
+        allDay: false,
+        startTime,
+        endTime,
+      };
+    }
+
+    modalProps.onClose();
+    onSubmit(newEvent);
+  }
+
   return (
     <Modal {...modalProps}>
       <div className="modal-title">
@@ -154,48 +239,79 @@ function EventFormModal({
           &times;
         </button>
       </div>
-      <form>
+      <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label htmlFor={`${formId}-name`}>Name</label>
-          <input className="text" name="name" id={`${formId}-name`} />
+          <input
+            required
+            ref={nameRef}
+            className="text"
+            id={`${formId}-name`}
+          />
         </div>
         <div className="form-group checkbox">
-          <input type="checkbox" name="all-day" id={`${formId}-all-day`} />
+          <input
+            checked={isAllDayChecked}
+            onChange={(e) => setIsAllDayChecked(e.target.checked)}
+            type="checkbox"
+            id={`${formId}-all-day`}
+          />
           <label htmlFor={`${formId}-all-day`}>All Day?</label>
         </div>
         <div className="row">
           <div className="form-group">
             <label htmlFor={`${formId}-start-time`}>Start Time</label>
-            <input type="time" name="start-time" id={`${formId}-start-time`} />
+            <input
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              required={!isAllDayChecked}
+              disabled={isAllDayChecked}
+              type="time"
+              id={`${formId}-start-time`}
+            />
           </div>
           <div className="form-group">
             <label htmlFor={`${formId}-end-time`}>End Time</label>
-            <input type="time" name="end-time" id={`${formId}-end-time`} />
+            <input
+              ref={endTimeRef}
+              min={startTime}
+              required={!isAllDayChecked}
+              disabled={isAllDayChecked}
+              type="time"
+              id={`${formId}-end-time`}
+            />
           </div>
         </div>
         <div className="form-group">
           <label>Color</label>
           <div className="row left">
-            <input
-              type="radio"
-              name="color"
-              value="blue"
-              id={`${formId}-blue`}
-              checked
-              className="color-radio"
-            />
-            <label htmlFor={`${formId}-blue`}>
-              <span className="sr-only">Blue</span>
-            </label>
+            {EVENT_COLORS.map((color) => (
+              <Fragment key={color}>
+                <input
+                  type="radio"
+                  name="color"
+                  value={color}
+                  id={`${formId}-${color}`}
+                  checked={selectedColor === color}
+                  onChange={() => setSelectedColor(color)}
+                  className="color-radio"
+                />
+                <label htmlFor={`${formId}-${color}`}>
+                  <span className="sr-only">{color}</span>
+                </label>
+              </Fragment>
+            ))}
           </div>
         </div>
         <div className="row">
           <button className="btn btn-success" type="submit">
-            Add
+            {isNew ? "Add" : "Edit"}
           </button>
-          <button className="btn btn-delete" type="button">
-            Delete
-          </button>
+          {onDelete != null && (
+            <button onClick={onDelete} className="btn btn-delete" type="button">
+              Delete
+            </button>
+          )}
         </div>
       </form>
     </Modal>

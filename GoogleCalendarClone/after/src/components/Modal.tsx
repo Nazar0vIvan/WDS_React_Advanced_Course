@@ -20,7 +20,7 @@ export function Modal({ children, isOpen, onClose }: ModalProps) {
     };
   }, [onClose]);
 
-  if (isOpen) return null;
+  if (!isOpen) return null;
   return createPortal(
     <div className="modal">
       <div className="overlay" onClick={onClose}></div>
