@@ -12,6 +12,7 @@ import {
   subMonths,
   addMonths,
   isSameDay,
+  parse,
 } from "date-fns";
 import { formatDate } from "../utils/formatDate";
 import { cc } from "../utils/cc";
@@ -19,6 +20,7 @@ import { EVENT_COLORS, useEvents } from "../context/useEvent";
 import { Modal, ModalProps } from "./Modal";
 import { UnionOmit } from "../utils/types";
 import { Event } from "../context/Events";
+import { OverflowContainer } from "./OverflowContainer";
 
 export function Calendar() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -87,6 +89,8 @@ function CalendarDay({
   events,
 }: CalendarDayProps) {
   const [isNewEventModalOpen, setIsNewEventModalOpen] = useState(false);
+  const [isViewMoreEventModalOpen, setIsViewMoreEventModalOpen] =
+    useState(false);
   const { addEvent } = useEvents();
 
   const sortedEvents = useMemo(() => {
@@ -129,21 +133,27 @@ function CalendarDay({
         </button>
       </div>
       {sortedEvents.length > 0 && (
-        <div className="events">
-          <button className="all-day-event blue event">
-            <div className="event-name">Short</div>
-          </button>
-          <button className="all-day-event green event">
-            <div className="event-name">
-              Long Event Name That Just Keeps Going
-            </div>
-          </button>
-          <button className="event">
-            <div className="color-dot blue"></div>
-            <div className="event-time">7am</div>
-            <div className="event-name">Event Name</div>
-          </button>
-        </div>
+        <OverflowContainer
+          className="events"
+          items={sortedEvents}
+          getKey={(event) => event.id}
+          renderItem={(event) => <CalendarEvent key={event.id} event={event} />}
+          renderOverflow={(amount) => (
+            <>
+              <button
+                onClick={() => setIsViewMoreEventModalOpen(true)}
+                className="events-view-more-btn"
+              >
+                +{amount} More
+              </button>
+              <ViewMoreCalendarEventsModal
+                events={sortedEvents}
+                isOpen={isViewMoreEventModalOpen}
+                onClose={() => setIsViewMoreEventModalOpen(false)}
+              />
+            </>
+          )}
+        />
       )}
 
       <EventFormModal
@@ -156,8 +166,64 @@ function CalendarDay({
   );
 }
 
+type ViewMoreCalendarEventsModalProps = {
+  events: Event[];
+} & Omit<ModalProps, "children">;
+
+function ViewMoreCalendarEventsModal({
+  events,
+  ...modalProps
+}: ViewMoreCalendarEventsModalProps) {
+  if (events.length === 0) return null;
+  return (
+    <Modal {...modalProps}>
+      <div className="modal-title">
+        <small>{formatDate(events[0].date, { dateStyle: "short" })}</small>
+        <button className="close-btn" onClick={modalProps.onClose}>
+          &times;
+        </button>
+      </div>
+      <div className="events">
+        {events.map((event) => (
+          <CalendarEvent event={event} key={event.id} />
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
 function CalendarEvent({ event }: { event: Event }) {
-  return;
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const { updateEvent, deleteEvent } = useEvents();
+  return (
+    <>
+      <button
+        onClick={() => setIsEditModalOpen(true)}
+        className={cc("event", event.color, event.allDay && "all-day-event")}
+      >
+        {event.allDay ? (
+          <div className="event-name">{event.name}</div>
+        ) : (
+          <>
+            <div className={`color-dot ${event.color}`}></div>
+            <div className="event-time">
+              {formatDate(parse(event.startTime, "HH:mm", event.date), {
+                timeStyle: "short",
+              })}
+            </div>
+            <div className="event-name">{event.name}</div>
+          </>
+        )}
+      </button>
+      <EventFormModal
+        event={event}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSubmit={(e) => updateEvent(event.id, e)}
+        onDelete={() => deleteEvent(event.id)}
+      />
+    </>
+  );
 }
 
 type EventFromModalProps = {
@@ -244,6 +310,7 @@ function EventFormModal({
           <label htmlFor={`${formId}-name`}>Name</label>
           <input
             required
+            defaultValue={event?.name}
             ref={nameRef}
             className="text"
             id={`${formId}-name`}
@@ -274,6 +341,7 @@ function EventFormModal({
             <label htmlFor={`${formId}-end-time`}>End Time</label>
             <input
               ref={endTimeRef}
+              defaultValue={event?.endTime}
               min={startTime}
               required={!isAllDayChecked}
               disabled={isAllDayChecked}
