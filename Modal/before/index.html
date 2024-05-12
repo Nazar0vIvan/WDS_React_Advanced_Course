@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="styles.css" />
-    <title>Document</title>
+    <title>Modal</title>
   </head>
   <body>
     <!-- Data attributes are only used for the JS below and not needed for the CSS or React code -->
@@ -27,36 +27,36 @@
 
     <script>
       // Dialog JS
-      const openDialogBtn = document.querySelector("[data-dialog-open]")
-      const closeDialogBtn = document.querySelector("dialog > button")
-      const dialog = document.querySelector("dialog")
+      const openDialogBtn = document.querySelector("[data-dialog-open]");
+      const closeDialogBtn = document.querySelector("dialog > button");
+      const dialog = document.querySelector("dialog");
 
       openDialogBtn.addEventListener("click", () => {
-        dialog.showModal()
-      })
+        dialog.showModal();
+      });
 
       closeDialogBtn.addEventListener("click", () => {
-        dialog.close()
-      })
+        dialog.close();
+      });
 
       // Custom JS
-      const openCustomBtn = document.querySelector("[data-custom-open]")
-      const closeCustomBtn = document.querySelector(".modal > button")
-      const customModalOverlay = document.querySelector(".modal-overlay")
+      const openCustomBtn = document.querySelector("[data-custom-open]");
+      const closeCustomBtn = document.querySelector(".modal > button");
+      const customModalOverlay = document.querySelector(".modal-overlay");
 
       openCustomBtn.addEventListener("click", () => {
-        customModalOverlay.classList.add("show")
-      })
+        customModalOverlay.classList.add("show");
+      });
 
       closeCustomBtn.addEventListener("click", () => {
-        customModalOverlay.classList.remove("show")
-      })
+        customModalOverlay.classList.remove("show");
+      });
 
-      document.addEventListener("keydown", e => {
+      document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
-          customModalOverlay.classList.remove("show")
+          customModalOverlay.classList.remove("show");
         }
-      })
+      });
     </script>
   </body>
 </html>
