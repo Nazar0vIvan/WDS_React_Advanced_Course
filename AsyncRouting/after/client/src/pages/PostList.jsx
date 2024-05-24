@@ -1,5 +1,12 @@
 import { Suspense, useEffect, useRef } from "react";
-import { Await, Form, Link, defer, useLoaderData } from "react-router-dom";
+import {
+  Await,
+  Form,
+  Link,
+  defer,
+  useLoaderData,
+  useNavigation,
+} from "react-router-dom";
 import { getPosts } from "../api/posts";
 import { getUsers } from "../api/users";
 import { FormGroup } from "../components/FormGroup";
@@ -13,6 +20,8 @@ function PostList() {
     searchParams: { query, userId },
   } = useLoaderData();
   const queryRef = useRef();
+  const { state } = useNavigation();
+  const isLoading = state === "loading";
 
   useEffect(() => {
     queryRef.current.value = query || "";
@@ -42,7 +51,7 @@ function PostList() {
             <Suspense
               fallback={
                 <select type="search" name="userId" id="userId" disabled>
-                  <option value="">Loading ...</option>
+                  <option value="">Loading...</option>
                 </select>
               }
             >
@@ -70,6 +79,7 @@ function PostList() {
         </div>
       </Form>
 
+      {isLoading && <div className="mb-2">Loading...</div>}
       <div className="card-grid">
         <Suspense
           fallback={

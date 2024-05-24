@@ -7,7 +7,7 @@ if (import.meta.env.VITE_SLOW_API === "true") {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve(res);
-      }, 1000);
+      }, 100);
     });
   });
 }
